@@ -219,6 +219,23 @@ class re_framework:
             np.save(os.path.join(test_result_dir, model_name + "_x.npy"), best_recall)
             np.save(os.path.join(test_result_dir, model_name + "_y.npy"), best_prec)
 
+    def predict(self,
+                model,
+                ckpt=None):
+        print("Predicting...")
+        if self.sess == None:
+            self.sess = tf.Session()
+        model = model(self.test_data_loader, self.test_data_loader.batch_size, self.test_data_loader.max_length)
+        if not ckpt is None:
+            #Load model from disk if not trained in same process
+            saver = tf.train.Saver()
+            saver.restore(self.sess, ckpt)
+        pred = [] #list containing the prediction for each
+        for i, batch_data in enumerate(self.test_data_loader):
+            iter_logit = self.one_step(self.sess, model, batch_data, [model.test_logit()])[0]
+
+
+
     def test(self,
              model,
              ckpt=None,
