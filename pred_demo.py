@@ -89,5 +89,5 @@ if len(sys.argv) > 2:
 if len(sys.argv) > 3:
     model.selector = sys.argv[3]
 
-res = framework.pred(model, ckpt_dir="checkpoint", model_name=dataset_name + "_" + model.encoder + "_" + model.selector, gpu_nums=1)
+res = framework.predict(model, ckpt_dir="checkpoint", model_name=dataset_name + "_" + model.encoder + "_" + model.selector)
 print(res)
