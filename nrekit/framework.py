@@ -230,11 +230,16 @@ class re_framework:
             #Load model from disk if not trained in same process
             saver = tf.train.Saver()
             saver.restore(self.sess, ckpt)
-        pred = [] #list containing the prediction for each
+        preds = [] #list containing the prediction for each
+        confs = [] #Confidence on the prediction
         for i, batch_data in enumerate(self.test_data_loader):
             iter_logit = self.one_step(self.sess, model, batch_data, [model.test_logit()])[0]
+            pred = iter_logit.argmax(-1)
+            conf = iter_logit[np.arange(len(iter_logit)), pred]
+            preds.append(pred)
+            confs.append(conf)
 
-
+        return preds, confs
 
     def test(self,
              model,
