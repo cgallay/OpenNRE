@@ -263,10 +263,11 @@ class re_framework:
                 sys.stdout.write("[TEST] step %d | not NA accuracy: %f, accuracy: %f\r" % (i, float(tot_not_na_correct) / tot_not_na, float(tot_correct) / tot))
                 sys.stdout.flush()
             for idx in range(len(iter_logit)):
-                for rel in range(1, self.test_data_loader.rel_tot):
-                    test_result.append({'score': iter_logit[idx][rel], 'flag': batch_data['multi_rel'][idx][rel]})
-                    if batch_data['entpair'][idx] != "None#None":
-                        pred_result.append({'score': iter_logit[idx][rel], 'entpair': batch_data['entpair'][idx], 'relation': rel})
+                rel = np.argmax(iter_logit[idx])
+                #for rel in range(1, self.test_data_loader.rel_tot):
+                test_result.append({'score': iter_logit[idx][rel], 'flag': batch_data['multi_rel'][idx][rel]})
+                if batch_data['entpair'][idx] != "None#None":
+                    pred_result.append({'score': iter_logit[idx][rel], 'entpair': batch_data['entpair'][idx], 'relation': rel})
                 entpair_tot += 1 
         sorted_test_result = sorted(test_result, key=lambda x: x['score'])
         prec = []
