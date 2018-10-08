@@ -221,15 +221,14 @@ class re_framework:
 
     def predict(self,
                 model,
-                ckpt=None):
+                ckpt):
         print("Predicting...")
         if self.sess == None:
             self.sess = tf.Session()
         model = model(self.test_data_loader, self.test_data_loader.batch_size, self.test_data_loader.max_length)
-        if not ckpt is None:
-            #Load model from disk if not trained in same process
-            saver = tf.train.Saver()
-            saver.restore(self.sess, ckpt)
+
+        saver = tf.train.Saver()
+        saver.restore(self.sess, ckpt)
         preds = [] #list containing the prediction for each
         confs = [] #Confidence on the prediction
         for i, batch_data in enumerate(self.test_data_loader):
