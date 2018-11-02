@@ -1,3 +1,5 @@
+from six import iteritems
+
 import json
 import os
 import multiprocessing
@@ -248,16 +250,7 @@ class json_file_data_loader(file_data_loader):
 
             # Sort data by entities and relations
             print("Sort data...")
-            def compare_by_entities_and_relations(a, b):
-                a_key = a['head']['id'] + '#' + a['tail']['id'] + '#' + a['relation']
-                b_key = b['head']['id'] + '#' + b['tail']['id'] + '#' + b['relation']
-                if a_key > b_key:
-                    return 1
-                elif a_key == b_key:
-                    return 0
-                else:
-                    return -1
-            self.ori_data.sort(cmp=compare_by_entities_and_relations)
+            self.ori_data.sort(key=lambda a: a['head']['id'] + '#' + a['tail']['id'] + '#' + a['relation'])
             print("Finish sorting")
        
             # Pre-process word vec
@@ -285,7 +278,7 @@ class json_file_data_loader(file_data_loader):
             self.entpair2scope = {} # (head, tail) -> scope
             self.relfact2scope = {} # (head, tail, relation) -> scope
             self.data_word = np.zeros((self.instance_tot, self.max_length), dtype=np.int32)
-            self.data_pos1 = np.zeros((self.instance_tot, self.max_length), dtype=np.int32) # [start_pos, end_pos], left closed right open
+            self.data_pos1 = np.zeros((self.instance_tot, self.max_length), dtype=np.int32) 
             self.data_pos2 = np.zeros((self.instance_tot, self.max_length), dtype=np.int32)
             self.data_rel = np.zeros((self.instance_tot), dtype=np.int32)
             self.data_mask = np.zeros((self.instance_tot, self.max_length), dtype=np.int32)
@@ -419,10 +412,18 @@ class json_file_data_loader(file_data_loader):
             self.order = list(range(self.instance_tot))
         elif self.mode == self.MODE_ENTPAIR_BAG:
             self.order = list(range(len(self.entpair2scope)))
-            self.scope = self.entpair2scope.values()
+            self.scope_name = []
+            self.scope = []
+            for key, value in iteritems(self.entpair2scope):
+                self.scope_name.append(key)
+                self.scope.append(value)
         elif self.mode == self.MODE_RELFACT_BAG:
             self.order = list(range(len(self.relfact2scope)))
-            self.scope = self.relfact2scope.values()
+            self.scope_name = []
+            self.scope = []
+            for key, value in iteritems(self.relfact2scope):
+                self.scope_name.append(key)
+                self.scope.append(value)
         else:
             raise Exception("[ERROR] Invalid mode")
         self.idx = 0
@@ -451,10 +452,7 @@ class json_file_data_loader(file_data_loader):
             idx0 = self.idx
             idx1 = self.idx + batch_size
             if idx1 > len(self.order):
-                self.idx = 0
-                if self.shuffle:
-                    random.shuffle(self.order) 
-                raise StopIteration
+                idx1 = len(self.order)
             self.idx = idx1
             batch_data['word'] = self.data_word[idx0:idx1]
             batch_data['pos1'] = self.data_pos1[idx0:idx1]
@@ -462,15 +460,20 @@ class json_file_data_loader(file_data_loader):
             batch_data['rel'] = self.data_rel[idx0:idx1]
             batch_data['mask'] = self.data_mask[idx0:idx1]
             batch_data['length'] = self.data_length[idx0:idx1]
-            batch_data['scope'] = np.stack([list(range(idx1 - idx0)), list(range(1, idx1 - idx0 + 1))], axis=1)
+            batch_data['scope'] = np.stack([list(range(batch_size)), list(range(1, batch_size + 1))], axis=1)
+            if idx1 - idx0 < batch_size:
+                padding = batch_size - (idx1 - idx0)
+                batch_data['word'] = np.concatenate([batch_data['word'], np.zeros((padding, self.data_word.shape[-1]), dtype=np.int32)])
+                batch_data['pos1'] = np.concatenate([batch_data['pos1'], np.zeros((padding, self.data_pos1.shape[-1]), dtype=np.int32)])
+                batch_data['pos2'] = np.concatenate([batch_data['pos2'], np.zeros((padding, self.data_pos2.shape[-1]), dtype=np.int32)])
+                batch_data['mask'] = np.concatenate([batch_data['mask'], np.zeros((padding, self.data_mask.shape[-1]), dtype=np.int32)])
+                batch_data['rel'] = np.concatenate([batch_data['rel'], np.zeros((padding), dtype=np.int32)])
+                batch_data['length'] = np.concatenate([batch_data['length'], np.zeros((padding), dtype=np.int32)])
         elif self.mode == self.MODE_ENTPAIR_BAG or self.mode == self.MODE_RELFACT_BAG:
             idx0 = self.idx
             idx1 = self.idx + batch_size
             if idx1 > len(self.order):
-                self.idx = 0
-                if self.shuffle:
-                    random.shuffle(self.order) 
-                raise StopIteration
+                idx1 = len(self.order)
             self.idx = idx1
             _word = []
             _pos1 = []
@@ -479,6 +482,7 @@ class json_file_data_loader(file_data_loader):
             _rel = []
             _ins_rel = []
             _multi_rel = []
+            _entpair = []
             _length = []
             _scope = []
             cur_pos = 0
@@ -498,6 +502,20 @@ class json_file_data_loader(file_data_loader):
                     for j in range(self.scope[self.order[i]][0], self.scope[self.order[i]][1]):
                         _one_multi_rel[self.data_rel[j]] = 1
                     _multi_rel.append(_one_multi_rel)
+                    _entpair.append(self.scope_name[self.order[i]])
+            for i in range(batch_size - (idx1 - idx0)):
+                _word.append(np.zeros((1, self.data_word.shape[-1]), dtype=np.int32))
+                _pos1.append(np.zeros((1, self.data_pos1.shape[-1]), dtype=np.int32))
+                _pos2.append(np.zeros((1, self.data_pos2.shape[-1]), dtype=np.int32))
+                _mask.append(np.zeros((1, self.data_mask.shape[-1]), dtype=np.int32))
+                _rel.append(0)
+                _ins_rel.append(np.zeros((1), dtype=np.int32))
+                _length.append(np.zeros((1), dtype=np.int32))
+                _scope.append([cur_pos, cur_pos + 1])
+                cur_pos += 1
+                if self.mode == self.MODE_ENTPAIR_BAG:
+                    _multi_rel.append(np.zeros((self.rel_tot), dtype=np.int32))
+                    _entpair.append('None#None')
             batch_data['word'] = np.concatenate(_word)
             batch_data['pos1'] = np.concatenate(_pos1)
             batch_data['pos2'] = np.concatenate(_pos2)
@@ -506,6 +524,7 @@ class json_file_data_loader(file_data_loader):
             batch_data['ins_rel'] = np.concatenate(_ins_rel)
             if self.mode == self.MODE_ENTPAIR_BAG:
                 batch_data['multi_rel'] = np.stack(_multi_rel)
+                batch_data['entpair'] = _entpair
             batch_data['length'] = np.concatenate(_length)
             batch_data['scope'] = np.stack(_scope)
 
