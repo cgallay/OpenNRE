@@ -3,6 +3,7 @@ import numpy as np
 import tensorflow as tf
 import sys
 import os
+import json
 
 dataset_name = 'nyt'
 if len(sys.argv) > 1:
@@ -60,13 +61,9 @@ class model(nrekit.framework.re_model):
             self._train_logit, train_repre = nrekit.network.selector.bag_average(x_train, self.scope, self.rel_tot, keep_prob=0.5)
             self._test_logit, test_repre = nrekit.network.selector.bag_average(x_test, self.scope, self.rel_tot, keep_prob=1.0)
             self._test_logit = tf.nn.softmax(self._test_logit)
-        elif model.selector == "one":
-            self._train_logit, train_repre = nrekit.network.selector.bag_one(x_train, self.scope, self.label, self.rel_tot, True, keep_prob=0.5)
-            self._test_logit, test_repre = nrekit.network.selector.bag_one(x_test, self.scope, self.label, self.rel_tot, False, keep_prob=1.0)
-            self._test_logit = tf.nn.softmax(self._test_logit)
-        elif model.selector == "cross_max":
-            self._train_logit, train_repre = nrekit.network.selector.bag_cross_max(x_train, self.scope, self.rel_tot, keep_prob=0.5)
-            self._test_logit, test_repre = nrekit.network.selector.bag_cross_max(x_test, self.scope, self.rel_tot, keep_prob=1.0)
+        elif model.selector == "max":
+            self._train_logit, train_repre = nrekit.network.selector.bag_maximum(x_train, self.scope, self.ins_label, self.rel_tot, True, keep_prob=0.5)
+            self._test_logit, test_repre = nrekit.network.selector.bag_maximum(x_test, self.scope, self.ins_label, self.rel_tot, False, keep_prob=1.0)
             self._test_logit = tf.nn.softmax(self._test_logit)
         else:
             raise NotImplementedError
@@ -99,4 +96,8 @@ if len(sys.argv) > 2:
 if len(sys.argv) > 3:
     model.selector = sys.argv[3]
 
-framework.train(model, ckpt_dir="checkpoint", model_name=dataset_name + "_" + model.encoder + "_" + model.selector, max_epoch=60, gpu_nums=1)
+auc, pred_result = framework.test(model, ckpt="./checkpoint/" + dataset_name + "_" + model.encoder + "_" + model.selector, return_result=True)
+
+with open('./test_result/' + dataset_name + "_" + model.encoder + "_" + model.selector + "_pred.json", 'w') as outfile:
+    json.dump(pred_result, outfile)
+
