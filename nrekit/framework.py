@@ -296,7 +296,10 @@ class re_framework:
         for i, item in enumerate(sorted_test_result[::-1]):
             correct += item['flag']
             prec.append(float(correct) / (i + 1))
-            recall.append(float(correct) / self.test_data_loader.relfact_tot)
+            if self.test_data_loader.relfact_tot == 0:
+                recall.append(1.0)
+            else:
+                recall.append(float(correct) / self.test_data_loader.relfact_tot)
         auc = sklearn.metrics.auc(x=recall, y=prec)
         print("\n[TEST] auc: {}".format(auc))
         print("Finish testing")
