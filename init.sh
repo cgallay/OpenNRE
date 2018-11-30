@@ -6,4 +6,8 @@ mkdir data
 wget -c -O data/nyt.tar https://cloud.tsinghua.edu.cn/f/11391e48b72749d8b60a/?dl=1
 cd data
 tar -xvf nyt.tar
-cd ..
+cd nyt
+source ../../venv/bin/activate
+python protobuf2json.py .
+deactivate
+cd ../..
